@@ -8,6 +8,6 @@ description = "Stereo Lithography file input and output."
 repository = "https://github.com/eholk/rust-stl"
 readme = "README.md"
 
-keywords = ["stl", "stereo lithography", "3d", "file format"]
+keywords = ["stl", "3d", "file", "format"]
 
 license = "BSD-3-Clause"
