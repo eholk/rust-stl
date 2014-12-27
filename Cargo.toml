@@ -3,3 +3,6 @@
 name = "stl"
 version = "0.0.1"
 authors = ["Eric Holk <eric.holk@gmail.com>"]
+
+license = "BSD-3-Clause"
+license_file = "LICENSE.txt"
