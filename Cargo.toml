@@ -1,7 +1,7 @@
 [package]
 
 name = "stl"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Eric Holk <eric.holk@gmail.com>"]
 
 description = "Stereo Lithography file input and output."
