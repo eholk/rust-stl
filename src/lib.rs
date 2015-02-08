@@ -1,4 +1,7 @@
-use std::io::{BufReader, IoResult};
+#![feature(io)]
+#![feature(core)]
+
+use std::old_io::IoResult;
 
 struct Triangle {
     normal: [f32; 3],
@@ -15,8 +18,8 @@ fn point_eq(lhs: [f32; 3], rhs: [f32; 3]) -> bool {
 impl PartialEq for Triangle {
     fn eq(&self, rhs: &Triangle) -> bool {
         point_eq(self.normal, rhs.normal)
-            && point_eq(self.v1, rhs.v1)            
-            && point_eq(self.v2, rhs.v2)            
+            && point_eq(self.v1, rhs.v1)
+            && point_eq(self.v2, rhs.v2)
             && point_eq(self.v3, rhs.v3)
             && self.attr_byte_count == rhs.attr_byte_count
     }
@@ -38,7 +41,7 @@ fn read_point<T: Reader>(input: &mut T) -> IoResult<[f32; 3]> {
     let x1 = try!(input.read_le_f32());
     let x2 = try!(input.read_le_f32());
     let x3 = try!(input.read_le_f32());
-    
+
     Ok([x1, x2, x3])
 }
 
@@ -88,9 +91,9 @@ pub fn write_stl<T: Writer>(out: &mut T, stl: &BinaryStlFile) -> IoResult<()> {
     assert!(stl.header.num_triangles as usize == stl.triangles.len());
 
     //write the header.
-    try!(out.write(&stl.header.header));
+    try!(out.write_all(&stl.header.header));
     try!(out.write_le_u32(stl.header.num_triangles));
-    
+
     // write all the triangles
     for t in stl.triangles.iter() {
         try!(write_point(out, t.normal));
@@ -103,32 +106,37 @@ pub fn write_stl<T: Writer>(out: &mut T, stl: &BinaryStlFile) -> IoResult<()> {
     Ok(())
 }
 
-#[test]
-fn write_read() {
-    // Make sure we can write and read a simple file.
-    let file = BinaryStlFile {
-        header: BinaryStlHeader { header: [0u8; 80],
-                                  num_triangles: 1 },
-        triangles: vec![Triangle { normal: [0f32, 1f32, 0f32],
-                                   v1: [0f32, 0f32, 0f32],
-                                   v2: [0f32, 0f32, 1f32],
-                                   v3: [1f32, 0f32, 1f32],
-                                   attr_byte_count: 0 }]
-    };
+#[cfg(test)]
+mod test {
+    use std::old_io::BufReader;
+    use super::{BinaryStlFile, BinaryStlHeader, write_stl, read_stl, Triangle};
+    #[test]
+    fn write_read() {
+        // Make sure we can write and read a simple file.
+        let file = BinaryStlFile {
+            header: BinaryStlHeader { header: [0u8; 80],
+                                      num_triangles: 1 },
+            triangles: vec![Triangle { normal: [0f32, 1f32, 0f32],
+                                       v1: [0f32, 0f32, 0f32],
+                                       v2: [0f32, 0f32, 1f32],
+                                       v3: [1f32, 0f32, 1f32],
+                                       attr_byte_count: 0 }]
+        };
 
-    let mut buffer = Vec::new();
+        let mut buffer = Vec::new();
 
-    match write_stl(&mut buffer, &file) {
-        Ok(_) => (),
-        Err(_) => panic!()
-    }
+        match write_stl(&mut buffer, &file) {
+            Ok(_) => (),
+            Err(_) => panic!()
+        }
 
-    match read_stl(&mut BufReader::new(&buffer[])) {
-        Ok(stl) => {
-            assert!(stl.header.num_triangles == file.header.num_triangles);
-            assert!(stl.triangles.len() == 1);
-            assert!(stl.triangles[0] == file.triangles[0])
-        },
-        Err(_) => panic!()
+        match read_stl(&mut BufReader::new(buffer.as_slice())) {
+            Ok(stl) => {
+                assert!(stl.header.num_triangles == file.header.num_triangles);
+                assert!(stl.triangles.len() == 1);
+                assert!(stl.triangles[0] == file.triangles[0])
+            },
+            Err(_) => panic!()
+        }
     }
 }
