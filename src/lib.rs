@@ -3,12 +3,12 @@
 
 use std::old_io::IoResult;
 
-struct Triangle {
-    normal: [f32; 3],
-    v1: [f32; 3],
-    v2: [f32; 3],
-    v3: [f32; 3],
-    attr_byte_count: u16
+pub struct Triangle {
+    pub normal: [f32; 3],
+    pub v1: [f32; 3],
+    pub v2: [f32; 3],
+    pub v3: [f32; 3],
+    pub attr_byte_count: u16
 }
 
 fn point_eq(lhs: [f32; 3], rhs: [f32; 3]) -> bool {
@@ -27,14 +27,14 @@ impl PartialEq for Triangle {
 
 impl Eq for Triangle {}
 
-struct BinaryStlHeader {
-    header: [u8; 80],
-    num_triangles: u32
+pub struct BinaryStlHeader {
+    pub header: [u8; 80],
+    pub num_triangles: u32
 }
 
 pub struct BinaryStlFile {
-    header: BinaryStlHeader,
-    triangles: Vec<Triangle>
+    pub header: BinaryStlHeader,
+    pub triangles: Vec<Triangle>
 }
 
 fn read_point<T: Reader>(input: &mut T) -> IoResult<[f32; 3]> {
