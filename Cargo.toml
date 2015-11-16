@@ -11,3 +11,6 @@ readme = "README.md"
 keywords = ["stl", "3d", "file", "format"]
 
 license = "BSD-3-Clause"
+
+[dependencies]
+byteorder = "^0.4.2"

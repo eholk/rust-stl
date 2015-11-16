@@ -1,14 +1,14 @@
-#![feature(io)]
-#![feature(core)]
+extern crate byteorder;
 
-use std::old_io::IoResult;
+use std::io::{Result, Write, ErrorKind, Error};
+use byteorder::{ReadBytesExt, LittleEndian, WriteBytesExt};
 
 pub struct Triangle {
-    pub normal: [f32; 3],
-    pub v1: [f32; 3],
-    pub v2: [f32; 3],
-    pub v3: [f32; 3],
-    pub attr_byte_count: u16
+    normal: [f32; 3],
+    v1: [f32; 3],
+    v2: [f32; 3],
+    v3: [f32; 3],
+    attr_byte_count: u16
 }
 
 fn point_eq(lhs: [f32; 3], rhs: [f32; 3]) -> bool {
@@ -37,37 +37,49 @@ pub struct BinaryStlFile {
     pub triangles: Vec<Triangle>
 }
 
-fn read_point<T: Reader>(input: &mut T) -> IoResult<[f32; 3]> {
-    let x1 = try!(input.read_le_f32());
-    let x2 = try!(input.read_le_f32());
-    let x3 = try!(input.read_le_f32());
-
+fn read_point<T: ReadBytesExt>(input: &mut T) -> Result<[f32; 3]> {
+    let x1 = try!(input.read_f32::<LittleEndian>());
+    let x2 = try!(input.read_f32::<LittleEndian>());
+    let x3 = try!(input.read_f32::<LittleEndian>());
+    
     Ok([x1, x2, x3])
 }
 
-fn read_triangle<T: Reader>(input: &mut T) -> IoResult<Triangle> {
+fn read_triangle<T: ReadBytesExt>(input: &mut T) -> Result<Triangle> {
     let normal = try!(read_point(input));
     let v1 = try!(read_point(input));
     let v2 = try!(read_point(input));
     let v3 = try!(read_point(input));
-    let attr_count = try!(input.read_le_u16());
+    let attr_count = try!(input.read_u16::<LittleEndian>());
 
     Ok(Triangle { normal: normal,
                   v1: v1, v2: v2, v3: v3,
                   attr_byte_count: attr_count })
 }
 
-pub fn read_stl<T: Reader>(input: &mut T) -> IoResult<BinaryStlFile> {
-    let mut header = BinaryStlHeader { header: [0u8; 80],
-                                       num_triangles: 0 };
+fn read_header<T: ReadBytesExt>(input: &mut T) -> Result<BinaryStlHeader> {
+    let mut header = [0u8; 80];
+
+    match input.read(&mut header) {
+        Ok(n) => if n == header.len() {
+            ()
+        }
+        else {
+            return Err(Error::new(ErrorKind::Other,
+                                  "Couldn't read STL header"));
+        },
+        Err(e) => return Err(e)
+    };
+
+    let num_triangles = try!(input.read_u32::<LittleEndian>());
+
+    Ok(BinaryStlHeader{ header: header, num_triangles: num_triangles })
+}
+
+pub fn read_stl<T: ReadBytesExt>(input: &mut T) -> Result<BinaryStlFile> {
 
     // read the header
-    try!(input.read_at_least(header.header.len(), &mut header.header));
-
-    // TODO: check the header to make sure whether this is a binary
-    // STL file.
-
-    header.num_triangles = try!(input.read_le_u32());
+    let header = try!(read_header(input));
 
     let mut triangles = Vec::new();
     for _ in 0 .. header.num_triangles {
@@ -80,27 +92,28 @@ pub fn read_stl<T: Reader>(input: &mut T) -> IoResult<BinaryStlFile> {
     })
 }
 
-fn write_point<T: Writer>(out: &mut T, p: [f32; 3]) -> IoResult<()> {
+fn write_point<T: WriteBytesExt>(out: &mut T, p: [f32; 3]) -> Result<()> {
     for x in p.iter() {
-        try!(out.write_le_f32(*x));
+        try!(out.write_f32::<LittleEndian>(*x));
     }
     Ok(())
 }
 
-pub fn write_stl<T: Writer>(out: &mut T, stl: &BinaryStlFile) -> IoResult<()> {
+pub fn write_stl<T: WriteBytesExt>(out: &mut T,
+                                   stl: &BinaryStlFile) -> Result<()> {
     assert!(stl.header.num_triangles as usize == stl.triangles.len());
 
     //write the header.
-    try!(out.write_all(&stl.header.header));
-    try!(out.write_le_u32(stl.header.num_triangles));
-
+    try!(out.write(&stl.header.header));
+    try!(out.write_u32::<LittleEndian>(stl.header.num_triangles));
+    
     // write all the triangles
     for t in stl.triangles.iter() {
         try!(write_point(out, t.normal));
         try!(write_point(out, t.v1));
         try!(write_point(out, t.v2));
         try!(write_point(out, t.v3));
-        try!(out.write_le_u16(t.attr_byte_count));
+        try!(out.write_u16::<LittleEndian>(t.attr_byte_count));
     }
 
     Ok(())
@@ -108,8 +121,8 @@ pub fn write_stl<T: Writer>(out: &mut T, stl: &BinaryStlFile) -> IoResult<()> {
 
 #[cfg(test)]
 mod test {
-    use std::old_io::BufReader;
     use super::{BinaryStlFile, BinaryStlHeader, write_stl, read_stl, Triangle};
+    use std::io::Cursor;
     #[test]
     fn write_read() {
         // Make sure we can write and read a simple file.
@@ -130,7 +143,7 @@ mod test {
             Err(_) => panic!()
         }
 
-        match read_stl(&mut BufReader::new(buffer.as_slice())) {
+        match read_stl(&mut Cursor::new(buffer)) {
             Ok(stl) => {
                 assert!(stl.header.num_triangles == file.header.num_triangles);
                 assert!(stl.triangles.len() == 1);
