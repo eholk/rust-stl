@@ -93,7 +93,7 @@ pub fn read_stl<T: ReadBytesExt>(input: &mut T) -> Result<BinaryStlFile> {
 }
 
 fn write_point<T: WriteBytesExt>(out: &mut T, p: [f32; 3]) -> Result<()> {
-    for x in p.iter() {
+    for x in &p {
         try!(out.write_f32::<LittleEndian>(*x));
     }
     Ok(())
@@ -101,14 +101,14 @@ fn write_point<T: WriteBytesExt>(out: &mut T, p: [f32; 3]) -> Result<()> {
 
 pub fn write_stl<T: WriteBytesExt>(out: &mut T,
                                    stl: &BinaryStlFile) -> Result<()> {
-    assert!(stl.header.num_triangles as usize == stl.triangles.len());
+    assert_eq!(stl.header.num_triangles as usize, stl.triangles.len());
 
     //write the header.
-    try!(out.write(&stl.header.header));
+    try!(out.write_all(&stl.header.header));
     try!(out.write_u32::<LittleEndian>(stl.header.num_triangles));
     
     // write all the triangles
-    for t in stl.triangles.iter() {
+    for t in &stl.triangles {
         try!(write_point(out, t.normal));
         try!(write_point(out, t.v1));
         try!(write_point(out, t.v2));
