@@ -4,11 +4,11 @@ use std::io::{Result, Write, ErrorKind, Error};
 use byteorder::{ReadBytesExt, LittleEndian, WriteBytesExt};
 
 pub struct Triangle {
-    normal: [f32; 3],
-    v1: [f32; 3],
-    v2: [f32; 3],
-    v3: [f32; 3],
-    attr_byte_count: u16,
+    pub normal: [f32; 3],
+    pub v1: [f32; 3],
+    pub v2: [f32; 3],
+    pub v3: [f32; 3],
+    pub attr_byte_count: u16,
 }
 
 fn point_eq(lhs: [f32; 3], rhs: [f32; 3]) -> bool {
