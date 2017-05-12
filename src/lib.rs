@@ -4,11 +4,11 @@ use std::io::{Result, Write, ErrorKind, Error};
 use byteorder::{ReadBytesExt, LittleEndian, WriteBytesExt};
 
 pub struct Triangle {
-    normal: [f32; 3],
-    v1: [f32; 3],
-    v2: [f32; 3],
-    v3: [f32; 3],
-    attr_byte_count: u16
+    pub normal: [f32; 3],
+    pub v1: [f32; 3],
+    pub v2: [f32; 3],
+    pub v3: [f32; 3],
+    pub attr_byte_count: u16,
 }
 
 fn point_eq(lhs: [f32; 3], rhs: [f32; 3]) -> bool {
@@ -17,11 +17,9 @@ fn point_eq(lhs: [f32; 3], rhs: [f32; 3]) -> bool {
 
 impl PartialEq for Triangle {
     fn eq(&self, rhs: &Triangle) -> bool {
-        point_eq(self.normal, rhs.normal)
-            && point_eq(self.v1, rhs.v1)
-            && point_eq(self.v2, rhs.v2)
-            && point_eq(self.v3, rhs.v3)
-            && self.attr_byte_count == rhs.attr_byte_count
+        point_eq(self.normal, rhs.normal) && point_eq(self.v1, rhs.v1) &&
+        point_eq(self.v2, rhs.v2) && point_eq(self.v3, rhs.v3) &&
+        self.attr_byte_count == rhs.attr_byte_count
     }
 }
 
@@ -29,19 +27,19 @@ impl Eq for Triangle {}
 
 pub struct BinaryStlHeader {
     pub header: [u8; 80],
-    pub num_triangles: u32
+    pub num_triangles: u32,
 }
 
 pub struct BinaryStlFile {
     pub header: BinaryStlHeader,
-    pub triangles: Vec<Triangle>
+    pub triangles: Vec<Triangle>,
 }
 
 fn read_point<T: ReadBytesExt>(input: &mut T) -> Result<[f32; 3]> {
     let x1 = try!(input.read_f32::<LittleEndian>());
     let x2 = try!(input.read_f32::<LittleEndian>());
     let x3 = try!(input.read_f32::<LittleEndian>());
-    
+
     Ok([x1, x2, x3])
 }
 
@@ -52,28 +50,35 @@ fn read_triangle<T: ReadBytesExt>(input: &mut T) -> Result<Triangle> {
     let v3 = try!(read_point(input));
     let attr_count = try!(input.read_u16::<LittleEndian>());
 
-    Ok(Triangle { normal: normal,
-                  v1: v1, v2: v2, v3: v3,
-                  attr_byte_count: attr_count })
+    Ok(Triangle {
+           normal: normal,
+           v1: v1,
+           v2: v2,
+           v3: v3,
+           attr_byte_count: attr_count,
+       })
 }
 
 fn read_header<T: ReadBytesExt>(input: &mut T) -> Result<BinaryStlHeader> {
     let mut header = [0u8; 80];
 
     match input.read(&mut header) {
-        Ok(n) => if n == header.len() {
-            ()
+        Ok(n) => {
+            if n == header.len() {
+                ()
+            } else {
+                return Err(Error::new(ErrorKind::Other, "Couldn't read STL header"));
+            }
         }
-        else {
-            return Err(Error::new(ErrorKind::Other,
-                                  "Couldn't read STL header"));
-        },
-        Err(e) => return Err(e)
+        Err(e) => return Err(e),
     };
 
     let num_triangles = try!(input.read_u32::<LittleEndian>());
 
-    Ok(BinaryStlHeader{ header: header, num_triangles: num_triangles })
+    Ok(BinaryStlHeader {
+           header: header,
+           num_triangles: num_triangles,
+       })
 }
 
 pub fn read_stl<T: ReadBytesExt>(input: &mut T) -> Result<BinaryStlFile> {
@@ -82,33 +87,32 @@ pub fn read_stl<T: ReadBytesExt>(input: &mut T) -> Result<BinaryStlFile> {
     let header = try!(read_header(input));
 
     let mut triangles = Vec::new();
-    for _ in 0 .. header.num_triangles {
+    for _ in 0..header.num_triangles {
         triangles.push(try!(read_triangle(input)));
     }
 
     Ok(BinaryStlFile {
-        header: header,
-        triangles: triangles
-    })
+           header: header,
+           triangles: triangles,
+       })
 }
 
 fn write_point<T: WriteBytesExt>(out: &mut T, p: [f32; 3]) -> Result<()> {
-    for x in p.iter() {
+    for x in &p {
         try!(out.write_f32::<LittleEndian>(*x));
     }
     Ok(())
 }
 
-pub fn write_stl<T: WriteBytesExt>(out: &mut T,
-                                   stl: &BinaryStlFile) -> Result<()> {
-    assert!(stl.header.num_triangles as usize == stl.triangles.len());
+pub fn write_stl<T: WriteBytesExt>(out: &mut T, stl: &BinaryStlFile) -> Result<()> {
+    assert_eq!(stl.header.num_triangles as usize, stl.triangles.len());
 
     //write the header.
-    try!(out.write(&stl.header.header));
+    try!(out.write_all(&stl.header.header));
     try!(out.write_u32::<LittleEndian>(stl.header.num_triangles));
-    
+
     // write all the triangles
-    for t in stl.triangles.iter() {
+    for t in &stl.triangles {
         try!(write_point(out, t.normal));
         try!(write_point(out, t.v1));
         try!(write_point(out, t.v2));
@@ -127,20 +131,24 @@ mod test {
     fn write_read() {
         // Make sure we can write and read a simple file.
         let file = BinaryStlFile {
-            header: BinaryStlHeader { header: [0u8; 80],
-                                      num_triangles: 1 },
-            triangles: vec![Triangle { normal: [0f32, 1f32, 0f32],
-                                       v1: [0f32, 0f32, 0f32],
-                                       v2: [0f32, 0f32, 1f32],
-                                       v3: [1f32, 0f32, 1f32],
-                                       attr_byte_count: 0 }]
+            header: BinaryStlHeader {
+                header: [0u8; 80],
+                num_triangles: 1,
+            },
+            triangles: vec![Triangle {
+                                normal: [0f32, 1f32, 0f32],
+                                v1: [0f32, 0f32, 0f32],
+                                v2: [0f32, 0f32, 1f32],
+                                v3: [1f32, 0f32, 1f32],
+                                attr_byte_count: 0,
+                            }],
         };
 
         let mut buffer = Vec::new();
 
         match write_stl(&mut buffer, &file) {
             Ok(_) => (),
-            Err(_) => panic!()
+            Err(_) => panic!(),
         }
 
         match read_stl(&mut Cursor::new(buffer)) {
@@ -148,8 +156,8 @@ mod test {
                 assert!(stl.header.num_triangles == file.header.num_triangles);
                 assert!(stl.triangles.len() == 1);
                 assert!(stl.triangles[0] == file.triangles[0])
-            },
-            Err(_) => panic!()
+            }
+            Err(_) => panic!(),
         }
     }
 }
