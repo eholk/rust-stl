@@ -1,8 +1,8 @@
 [package]
 
 name = "stl"
-version = "0.2.0"
-authors = ["Eric Holk <eric.holk@gmail.com>"]
+version = "0.2.1"
+authors = ["Eric Holk <eric@theincredibleholk.org>"]
 
 description = "Stereo Lithography file input and output."
 repository = "https://github.com/eholk/rust-stl"
