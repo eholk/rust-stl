@@ -1,6 +1,6 @@
 extern crate byteorder;
 
-use std::io::{Result, Write, ErrorKind, Error};
+use std::io::{Result, ErrorKind, Error};
 use byteorder::{ReadBytesExt, LittleEndian, WriteBytesExt};
 
 pub struct Triangle {
@@ -36,19 +36,19 @@ pub struct BinaryStlFile {
 }
 
 fn read_point<T: ReadBytesExt>(input: &mut T) -> Result<[f32; 3]> {
-    let x1 = try!(input.read_f32::<LittleEndian>());
-    let x2 = try!(input.read_f32::<LittleEndian>());
-    let x3 = try!(input.read_f32::<LittleEndian>());
+    let x1 = input.read_f32::<LittleEndian>()?;
+    let x2 = input.read_f32::<LittleEndian>()?;
+    let x3 = input.read_f32::<LittleEndian>()?;
 
     Ok([x1, x2, x3])
 }
 
 fn read_triangle<T: ReadBytesExt>(input: &mut T) -> Result<Triangle> {
-    let normal = try!(read_point(input));
-    let v1 = try!(read_point(input));
-    let v2 = try!(read_point(input));
-    let v3 = try!(read_point(input));
-    let attr_count = try!(input.read_u16::<LittleEndian>());
+    let normal = read_point(input)?;
+    let v1 = read_point(input)?;
+    let v2 = read_point(input)?;
+    let v3 = read_point(input)?;
+    let attr_count = input.read_u16::<LittleEndian>()?;
 
     Ok(Triangle {
            normal: normal,
@@ -73,7 +73,7 @@ fn read_header<T: ReadBytesExt>(input: &mut T) -> Result<BinaryStlHeader> {
         Err(e) => return Err(e),
     };
 
-    let num_triangles = try!(input.read_u32::<LittleEndian>());
+    let num_triangles = input.read_u32::<LittleEndian>()?;
 
     Ok(BinaryStlHeader {
            header: header,
@@ -84,11 +84,11 @@ fn read_header<T: ReadBytesExt>(input: &mut T) -> Result<BinaryStlHeader> {
 pub fn read_stl<T: ReadBytesExt>(input: &mut T) -> Result<BinaryStlFile> {
 
     // read the header
-    let header = try!(read_header(input));
+    let header = read_header(input)?;
 
     let mut triangles = Vec::new();
     for _ in 0..header.num_triangles {
-        triangles.push(try!(read_triangle(input)));
+        triangles.push(read_triangle(input)?);
     }
 
     Ok(BinaryStlFile {
@@ -99,7 +99,7 @@ pub fn read_stl<T: ReadBytesExt>(input: &mut T) -> Result<BinaryStlFile> {
 
 fn write_point<T: WriteBytesExt>(out: &mut T, p: [f32; 3]) -> Result<()> {
     for x in &p {
-        try!(out.write_f32::<LittleEndian>(*x));
+        out.write_f32::<LittleEndian>(*x)?;
     }
     Ok(())
 }
@@ -108,16 +108,16 @@ pub fn write_stl<T: WriteBytesExt>(out: &mut T, stl: &BinaryStlFile) -> Result<(
     assert_eq!(stl.header.num_triangles as usize, stl.triangles.len());
 
     //write the header.
-    try!(out.write_all(&stl.header.header));
-    try!(out.write_u32::<LittleEndian>(stl.header.num_triangles));
+    out.write_all(&stl.header.header)?;
+    out.write_u32::<LittleEndian>(stl.header.num_triangles)?;
 
     // write all the triangles
     for t in &stl.triangles {
-        try!(write_point(out, t.normal));
-        try!(write_point(out, t.v1));
-        try!(write_point(out, t.v2));
-        try!(write_point(out, t.v3));
-        try!(out.write_u16::<LittleEndian>(t.attr_byte_count));
+        write_point(out, t.normal)?;
+        write_point(out, t.v1)?;
+        write_point(out, t.v2)?;
+        write_point(out, t.v3)?;
+        out.write_u16::<LittleEndian>(t.attr_byte_count)?;
     }
 
     Ok(())
